@@ -1,3 +1,5 @@
+import os
+
 import torch
 import evaluate
 import numpy as np
@@ -52,6 +54,10 @@ class ScriptArguments:
             "help": "The model that you want to train from the Hugging Face hub or local."
         },
     )
+    dataset_name: Optional[str] = field(
+        default="./datasets/comparision_data.json",
+        metadata={"help": "The dataset name"},
+    )
     bf16: Optional[bool] = field(
         default=True,
         metadata={
@@ -82,16 +88,17 @@ class ScriptArguments:
         default="linear",
         metadata={"help": "The lr scheduler"},
     )
+    output_dir: Optional[str] = field(default="runs/", metadata={"help": "n steps to save the model"})
 
 
 parser = HfArgumentParser(ScriptArguments)
 script_args = parser.parse_args_into_dataclasses()[0]
 
-# Load the human stack-exchange-paired dataset for tuning the reward model.
-train_dataset = load_dataset("./datasets/comparision_data.json", split="train")
+# Load the dataset for tuning the reward model.
+train_dataset = load_dataset(script_args.dataset_name, split="train")
 if script_args.train_subset > 0:
     train_dataset = train_dataset.select(range(script_args.train_subset))
-eval_dataset = load_dataset("./datasets/comparision_data.json", split="test")
+eval_dataset = load_dataset(script_args.dataset_name, split="test")
 if script_args.eval_subset > 0:
     eval_dataset = eval_dataset.select(range(script_args.eval_subset))
 # Define the training args. Needs to be done before the model is loaded if you are using deepspeed.
@@ -101,7 +108,7 @@ output_name = (
 )
 
 training_args = TrainingArguments(
-    output_dir=output_name,
+    output_dir=os.path.join(script_args.output_dir, output_name),
     learning_rate=script_args.learning_rate,
     per_device_train_batch_size=script_args.per_device_train_batch_size,
     per_device_eval_batch_size=script_args.per_device_eval_batch_size,
@@ -280,4 +287,4 @@ trainer = RewardTrainer(
 trainer.train(script_args.resume_from_checkpoint)
 
 print("Saving last checkpoint of the model")
-model.save_pretrained(output_name + "_peft_last_checkpoint")
+model.save_pretrained(script_args.output_dir + "peft_last_checkpoint")
