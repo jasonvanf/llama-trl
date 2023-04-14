@@ -1,8 +1,8 @@
 torch>=1.4.0
 datasets>=1.17.0
-transformers
+git+https://github.com/huggingface/peft.git
+git+https://github.com/huggingface/transformers.git
 accelerate
 evaluate
-peft
 trl
 tqdm
