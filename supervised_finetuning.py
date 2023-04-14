@@ -252,7 +252,7 @@ def main(args):
     config = AutoConfig.from_pretrained(args.base_model)
     architecture = config.architectures[0]
 
-    tokenizer = AutoTokenizer.from_pretrained(args.base_model, use_auth_token=True)
+    tokenizer = AutoTokenizer.from_pretrained(args.base_model)
 
     if "Llama" in architecture:
         print("Setting EOS, BOS, and UNK tokens for LLama tokenizer")
