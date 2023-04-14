@@ -6,3 +6,4 @@ accelerate
 evaluate
 trl
 tqdm
+sentencepiece
