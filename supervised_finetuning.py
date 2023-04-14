@@ -10,7 +10,7 @@ from torch.utils.data import IterableDataset
 from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
-    AutoTokenizer,
+    LlamaTokenizer,
     Trainer,
     TrainingArguments,
     logging,
@@ -252,7 +252,7 @@ def main(args):
     config = AutoConfig.from_pretrained(args.base_model)
     architecture = config.architectures[0]
 
-    tokenizer = AutoTokenizer.from_pretrained(args.base_model)
+    tokenizer = LlamaTokenizer.from_pretrained(args.base_model)
 
     if "Llama" in architecture:
         print("Setting EOS, BOS, and UNK tokens for LLama tokenizer")
