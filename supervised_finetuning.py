@@ -153,7 +153,6 @@ def create_datasets(tokenizer, args):
     dataset = load_dataset(
         args.dataset_name,
         split=args.split,
-        use_auth_token=True,
         num_proc=args.num_workers if not args.streaming else None,
         streaming=args.streaming,
     )
