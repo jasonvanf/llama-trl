@@ -151,7 +151,8 @@ class ConstantLengthDataset(IterableDataset):
 
 def create_datasets(tokenizer, args):
     dataset = load_dataset(
-        args.dataset_name,
+        "json",
+        data_files=args.dataset_name,
         split=args.split,
         num_proc=args.num_workers if not args.streaming else None,
         streaming=args.streaming,
