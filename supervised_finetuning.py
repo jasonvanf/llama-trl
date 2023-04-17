@@ -213,7 +213,8 @@ def run_training(args, train_data, val_data):
         trust_remote_code=True,
         use_cache=not args.no_gradient_checkpointing,
         load_in_8bit=True,
-        device_map={"": Accelerator().local_process_index},
+        # device_map={"": Accelerator().local_process_index},
+        device_map="auto",
     )
     model = prepare_model_for_int8_training(model)
 
