@@ -16,6 +16,7 @@ from transformers import (
     PreTrainedTokenizerBase,
     Trainer,
     TrainingArguments,
+    set_seed,
 )
 from transformers.utils import PaddingStrategy
 
@@ -48,6 +49,7 @@ class ScriptArguments:
     gradient_accumulation_steps: Optional[int] = field(default=1)
     learning_rate: Optional[float] = field(default=2e-5)
     weight_decay: Optional[int] = field(default=0.001)
+    seed: Optional[int] = field(default=1103)
     model_name: Optional[str] = field(
         default="decapoda-research/llama-7b-hf",
         metadata={
@@ -55,7 +57,7 @@ class ScriptArguments:
         },
     )
     dataset_name: Optional[str] = field(
-        default="./datasets/comparision_data.json",
+        default="./datasets/comparison_data_v2.json",
         metadata={"help": "The dataset name"},
     )
     bf16: Optional[bool] = field(
@@ -94,11 +96,20 @@ class ScriptArguments:
 parser = HfArgumentParser(ScriptArguments)
 script_args = parser.parse_args_into_dataclasses()[0]
 
+set_seed(script_args.seed)
+
 # Load the dataset for tuning the reward model.
-train_dataset = load_dataset(script_args.dataset_name, split="train")
+dataset = load_dataset(
+    "json",
+    data_files=script_args.dataset_name,
+    split="train"
+)
+dataset = dataset.train_test_split(test_size=0.1, seed=script_args.seed)
+train_dataset = dataset["train"]
+eval_dataset = dataset["test"]
+
 if script_args.train_subset > 0:
     train_dataset = train_dataset.select(range(script_args.train_subset))
-eval_dataset = load_dataset(script_args.dataset_name, split="test")
 if script_args.eval_subset > 0:
     eval_dataset = eval_dataset.select(range(script_args.eval_subset))
 # Define the training args. Needs to be done before the model is loaded if you are using deepspeed.
