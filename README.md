@@ -33,7 +33,7 @@ torchrun --nnodes 1 --nproc_per_node 8 supervised_finetuning.py \
 ```
 torchrun --nnodes 1 --nproc_per_node 8 training_reward_model.py \
     --model_name=decapoda-research/llama-7b-hf \
-    --dataset_name=./datasets/comparison_data_v2.json \
+    --dataset_name=./datasets/comparison_data.json \
     --output_dir=./checkpoints/training_reward_model/
 ```
 
