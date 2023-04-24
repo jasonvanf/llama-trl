@@ -32,6 +32,7 @@ class ScriptArguments:
     dataset_name: Optional[str] = field(default="", metadata={"help": "the dataset name"})
     log_with: Optional[str] = field(default=None, metadata={"help": "use 'wandb' to log with wandb"})
     learning_rate: Optional[float] = field(default=1.41e-5, metadata={"help": "the learning rate"})
+    max_length: Optional[int] = field(default=512, metadata={"help": "maximum length for input"})
     output_max_length: Optional[int] = field(default=128, metadata={"help": "maximum length for generation"})
     mini_batch_size: Optional[int] = field(default=1, metadata={"help": "the PPO minibatch size"})
     batch_size: Optional[int] = field(default=32, metadata={"help": "the batch size"})
@@ -132,7 +133,7 @@ def build_dataset(
         num_proc=num_proc,
         remove_columns=original_columns,
     )
-    ds = ds.filter(lambda x: len(x["input_ids"]) < 512, batched=False)
+    ds = ds.filter(lambda x: len(x["input_ids"]) < script_args.max_length, batched=False)
 
     ds.set_format(type="torch")
     return ds

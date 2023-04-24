@@ -143,7 +143,7 @@ training_args = TrainingArguments(
     lr_scheduler_type=script_args.lr_scheduler_type,
 )
 # Load the value-head model and tokenizer.
-tokenizer = AutoTokenizer.from_pretrained(script_args.model_name, use_auth_token=True)
+tokenizer = AutoTokenizer.from_pretrained(script_args.model_name)
 config = AutoConfig.from_pretrained(script_args.model_name)
 
 if "llama" in script_args.model_name:
@@ -193,8 +193,8 @@ def preprocess_function(examples):
     }
     for question, response_j, response_k in zip(examples["user_input"], examples["completion_a"],
                                                 examples["completion_b"]):
-        tokenized_j = tokenizer("Question: " + question + "\n\nAnswer: " + response_j, truncation=True)
-        tokenized_k = tokenizer("Question: " + question + "\n\nAnswer: " + response_k, truncation=True)
+        tokenized_j = tokenizer(question + response_j, truncation=True)
+        tokenized_k = tokenizer(question + response_k, truncation=True)
 
         new_examples["input_ids_j"].append(tokenized_j["input_ids"])
         new_examples["attention_mask_j"].append(tokenized_j["attention_mask"])
