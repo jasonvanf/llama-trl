@@ -72,11 +72,11 @@ class ScriptArguments:
         metadata={"help": "The number of training epochs for the reward model."},
     )
     train_subset: Optional[int] = field(
-        default=100000,
+        default=0,
         metadata={"help": "The size of the subset of the training data to use"},
     )
     eval_subset: Optional[int] = field(
-        default=50000,
+        default=0,
         metadata={"help": "The size of the subset of the eval data to use"},
     )
     gradient_checkpointing: Optional[bool] = field(
