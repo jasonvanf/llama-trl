@@ -91,7 +91,7 @@ class ScriptArguments:
         default="linear",
         metadata={"help": "The lr scheduler"},
     )
-    output_dir: Optional[str] = field(default="runs/", metadata={"help": "n steps to save the model"})
+    output_dir: Optional[str] = field(default="./checkpoints/training_reward_model/", metadata={"help": "n steps to save the model"})
 
 
 parser = HfArgumentParser(ScriptArguments)

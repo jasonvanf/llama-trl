@@ -49,7 +49,7 @@ class ScriptArguments:
     )
     batched_gen: Optional[bool] = field(default=False, metadata={"help": "whether to use the batched text gen"})
     save_freq: Optional[int] = field(default=None, metadata={"help": "n steps to save the model"})
-    output_dir: Optional[str] = field(default="runs/", metadata={"help": "n steps to save the model"})
+    output_dir: Optional[str] = field(default="./checkpoints/tuning_llama_rl/", metadata={"help": "n steps to save the model"})
     seed: Optional[int] = field(default=0, metadata={"help": "the seed"})
 
 

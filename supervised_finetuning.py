@@ -17,6 +17,8 @@ from transformers import (
     set_seed
 )
 
+from utils.merge import merge_llm_with_lora
+
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -44,7 +46,8 @@ def get_args():
     parser.add_argument("--no_gradient_checkpointing", action="store_false", default=False)
     parser.add_argument("--seed", type=int, default=1103)
     parser.add_argument("--num_workers", type=int, default=None)
-    parser.add_argument("--output_dir", type=str, default="./checkpoints")
+    parser.add_argument("--merge_lora", type=bool, default=False)
+    parser.add_argument("--output_dir", type=str, default="./checkpoints/supervised_llama/")
     parser.add_argument("--log_freq", default=1, type=int)
     parser.add_argument("--eval_freq", default=1000, type=int)
     parser.add_argument("--save_freq", default=1000, type=int)
@@ -262,7 +265,11 @@ def run_training(args, train_data, val_data):
     trainer.train()
 
     print("Saving last checkpoint of the model")
-    model.save_pretrained(os.path.join(args.output_dir, "final_checkpoint/"))
+    lora_model_path = os.path.join(args.output_dir, "lora/final_checkpoint/")
+    model.save_pretrained(lora_model_path)
+
+    if args.merge_lora:
+        merge_llm_with_lora(args.base_model, lora_model_path, args.output_dir)
 
 
 def main(args):
