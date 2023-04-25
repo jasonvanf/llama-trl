@@ -72,7 +72,7 @@ config = PPOConfig(
 
 # We then define the arguments to pass to the sentiment analysis pipeline.
 # We set `return_all_scores` to True to get the sentiment score for each token.
-sent_kwargs = {"return_all_scores": True, "function_to_apply": "none", "batch_size": 16, "truncation": True}
+rw_kwargs = {"return_all_scores": True, "function_to_apply": "none", "batch_size": 16, "truncation": True}
 
 tokenizer = AutoTokenizer.from_pretrained(script_args.tokenizer_name)
 # GPT-2 tokenizer has a pad token, but it is not eos_token by default. We need to set it to eos_token.
@@ -194,8 +194,8 @@ ppo_trainer = PPOTrainer(
 device = ppo_trainer.accelerator.device
 if ppo_trainer.accelerator.num_processes == 1:
     device = 0 if torch.cuda.is_available() else "cpu"  # to avoid a ` pipeline` bug
-sentiment_pipe = pipeline(
-    "sentiment-analysis",
+reward_model = pipeline(
+    "text-classification",
     model=reward_model_name,
     device_map="auto",
     model_kwargs={"load_in_8bit": True},
@@ -230,8 +230,8 @@ for epoch, batch in tqdm(enumerate(ppo_trainer.dataloader)):
 
     # Compute sentiment score
     texts = [q + r for q, r in zip(batch["query"], batch["response"])]
-    pipe_outputs = sentiment_pipe(texts, **sent_kwargs)
-    rewards = [torch.tensor(output[0]["score"] - script_args.reward_baseline) for output in pipe_outputs]
+    reward_outputs = reward_model(texts, **rw_kwargs)
+    rewards = [torch.tensor(output[0]["score"] - script_args.reward_baseline) for output in reward_outputs]
 
     # Run PPO step
     stats = ppo_trainer.step(question_tensors, response_tensors, rewards)
