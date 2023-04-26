@@ -43,8 +43,3 @@ def merge_llm_with_lora(base_model_name, adapter_model_name, output_name, push_t
 
     if push_to_hub:
         model.push_to_hub(f"{output_name}", use_temp_dir=False)
-
-
-assert adapter_model_name is not None, "please provide the name of the Adapter you would like to merge"
-assert base_model_name is not None, "please provide the name of the Base model"
-assert base_model_name is not None, "please provide the output name of the merged model"
