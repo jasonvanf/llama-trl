@@ -58,7 +58,7 @@ class ScriptArguments:
         },
     )
     dataset_name: Optional[str] = field(
-        default="./datasets/comparison_data_v2.json",
+        default="./data/comparison_data_v2.json",
         metadata={"help": "The dataset name"},
     )
     bf16: Optional[bool] = field(

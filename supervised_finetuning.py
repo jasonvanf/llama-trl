@@ -23,7 +23,7 @@ from utils.merge import merge_llm_with_lora
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base_model", type=str, default="")
-    parser.add_argument("--dataset_name", type=str, default="./datasets/alpaca_gpt4_data.json")
+    parser.add_argument("--dataset_name", type=str, default="./data/alpaca_gpt4_data.json")
     parser.add_argument("--split", type=str, default="train")
     parser.add_argument("--size_valid_set", type=int, default=4000)
     parser.add_argument("--streaming", action="store_true")
@@ -216,7 +216,7 @@ def run_training(args, train_data, val_data):
         trust_remote_code=True,
         use_cache=not args.no_gradient_checkpointing,
         load_in_8bit=True,
-        device_map="auto",
+        device_map={"": Accelerator().process_index},
     )
     model = prepare_model_for_int8_training(model)
 

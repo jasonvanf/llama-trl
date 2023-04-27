@@ -21,7 +21,7 @@ pip install -r requirements.txt
 ```
 torchrun --nnodes 1 --nproc_per_node 8 supervised_finetuning.py \
     --base_model 'decapoda-research/llama-7b-hf' \
-    --dataset_name './datasets/alpaca_gpt4_data.json' \
+    --dataset_name './data/alpaca_gpt4_data.json' \
     --streaming --no_gradient_checkpointing \
     --learning_rate 1e-5 \
     --max_steps 5000 \
@@ -33,7 +33,7 @@ torchrun --nnodes 1 --nproc_per_node 8 supervised_finetuning.py \
 ```
 torchrun --nnodes 1 --nproc_per_node 8 training_reward_model.py \
     --model_name 'decapoda-research/llama-7b-hf' \
-    --dataset_name './datasets/comparison_data.json' \
+    --dataset_name './data/comparison_data.json' \
     --output_dir './checkpoints/training_reward_model/'
 ```
 
