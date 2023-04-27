@@ -170,13 +170,17 @@ class ConstantLengthDataset(IterableDataset):
 
 
 def create_datasets(tokenizer, args):
-    dataset = load_dataset(
-        "json",
-        data_files=args.dataset_name,
-        split=args.split,
-        num_proc=args.num_workers if not args.streaming else None,
-        streaming=args.streaming,
-    )
+    data_path = args.dataset_name
+    data_kwargs = {
+        "split": args.split,
+        "num_proc": args.num_workers if not args.streaming else None,
+        "streaming": args.streaming,
+    }
+    if data_path.endswith(".json") or data_path.endswith(".jsonl"):
+        dataset = load_dataset("json", data_files=data_path, **data_kwargs)
+    else:
+        dataset = load_dataset(data_path, **data_kwargs)
+
     if args.streaming:
         print("Loading the dataset in streaming mode")
         valid_data = dataset.take(args.size_valid_set)
@@ -210,13 +214,20 @@ def create_datasets(tokenizer, args):
 
 def run_training(args, train_data, val_data):
     print("Loading the model")
+
+    device_map = "auto"
+    world_size = int(os.environ.get("WORLD_SIZE", 1))
+    ddp = world_size != 1
+    if ddp:
+        device_map = {"": int(os.environ.get("LOCAL_RANK") or 0)}
+
     # disable caching mechanism when using gradient checkpointing
     model = AutoModelForCausalLM.from_pretrained(
         args.base_model,
         trust_remote_code=True,
         use_cache=not args.no_gradient_checkpointing,
         load_in_8bit=True,
-        device_map={"": Accelerator().process_index},
+        device_map=device_map,
     )
     model = prepare_model_for_int8_training(model)
 

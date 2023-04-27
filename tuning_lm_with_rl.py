@@ -1,3 +1,5 @@
+import os
+
 import torch
 from dataclasses import dataclass, field
 from typing import Optional
@@ -49,7 +51,8 @@ class ScriptArguments:
     )
     batched_gen: Optional[bool] = field(default=False, metadata={"help": "whether to use the batched text gen"})
     save_freq: Optional[int] = field(default=None, metadata={"help": "n steps to save the model"})
-    output_dir: Optional[str] = field(default="./checkpoints/tuning_llama_rl/", metadata={"help": "n steps to save the model"})
+    output_dir: Optional[str] = field(default="./checkpoints/tuning_llama_rl/",
+                                      metadata={"help": "n steps to save the model"})
     seed: Optional[int] = field(default=0, metadata={"help": "the seed"})
 
 
@@ -151,7 +154,11 @@ def collator(data):
 set_seed(config.seed)
 
 # Now let's build the model, the reference model, and the tokenizer.
-current_device = Accelerator().local_process_index
+device_map = "auto"
+world_size = int(os.environ.get("WORLD_SIZE", 1))
+ddp = world_size != 1
+if ddp:
+    device_map = {"": int(os.environ.get("LOCAL_RANK") or 0)}
 
 lora_config = LoraConfig(
     r=16,
@@ -163,7 +170,7 @@ lora_config = LoraConfig(
 model = AutoModelForCausalLMWithValueHead.from_pretrained(
     config.model_name,
     load_in_8bit=True,
-    device_map="auto",
+    device_map=device_map,
     peft_config=lora_config,
     layer_norm_names=[],
 )
@@ -197,7 +204,7 @@ if ppo_trainer.accelerator.num_processes == 1:
 reward_model = pipeline(
     "text-classification",
     model=reward_model_name,
-    device_map="auto",
+    device_map=device_map,
     model_kwargs={"load_in_8bit": True},
     tokenizer=tokenizer,
 )
