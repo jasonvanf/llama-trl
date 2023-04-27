@@ -177,7 +177,7 @@ model.print_trainable_parameters()
 # Need to do this for gpt2, because it doesn't have an official pad token.
 tokenizer.pad_token = tokenizer.eos_token
 model.config.pad_token_id = tokenizer.eos_token_id
-model.config.use_cache = not script_args.gradient_checkpointing
+model.config.use_cache = script_args.gradient_checkpointing
 num_proc = 24  # Can adjust to be higher if you have more processors.
 original_columns = train_dataset.column_names
 

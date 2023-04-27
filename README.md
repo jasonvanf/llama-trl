@@ -22,9 +22,9 @@ pip install -r requirements.txt
 torchrun --nnodes 1 --nproc_per_node 8 supervised_finetuning.py \
     --base_model 'decapoda-research/llama-7b-hf' \
     --dataset_name './data/alpaca_gpt4_data.json' \
-    --streaming --no_gradient_checkpointing \
+    --streaming \
     --learning_rate 1e-5 \
-    --max_steps 5000 \
+    --num_epochs 3 \
     --output_dir './checkpoints/supervised_llama/'
 ```
 

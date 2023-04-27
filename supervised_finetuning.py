@@ -30,20 +30,20 @@ def get_args():
     parser.add_argument("--shuffle_buffer", type=int, default=5000)
 
     parser.add_argument("--seq_length", type=int, default=2048)
-    parser.add_argument("--max_steps", type=int, default=10000)
+    parser.add_argument("--num_epochs", type=int, default=3)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
     parser.add_argument("--eos_token_id", type=int, default=49152)
 
     parser.add_argument("--learning_rate", type=float, default=1e-4)
-    parser.add_argument("--lr_scheduler_type", type=str, default="cosine")
+    parser.add_argument("--lr_scheduler_type", type=str, default="linear")
     parser.add_argument("--num_warmup_steps", type=int, default=100)
     parser.add_argument("--weight_decay", type=float, default=0.05)
 
     parser.add_argument("--local_rank", type=int, default=0)
     parser.add_argument("--no_fp16", action="store_false")
     parser.add_argument("--bf16", action="store_true", default=True)
-    parser.add_argument("--no_gradient_checkpointing", action="store_false", default=False)
+    parser.add_argument("--gradient_checkpointing", action="store_true", default=True)
     parser.add_argument("--seed", type=int, default=1103)
     parser.add_argument("--num_workers", type=int, default=None)
     parser.add_argument("--merge_lora", type=bool, default=False)
@@ -225,7 +225,7 @@ def run_training(args, train_data, val_data):
     model = AutoModelForCausalLM.from_pretrained(
         args.base_model,
         trust_remote_code=True,
-        use_cache=not args.no_gradient_checkpointing,
+        use_cache=args.gradient_checkpointing,
         load_in_8bit=True,
         device_map=device_map,
     )
@@ -249,9 +249,8 @@ def run_training(args, train_data, val_data):
 
     training_args = TrainingArguments(
         output_dir=args.output_dir,
-        dataloader_drop_last=True,
         evaluation_strategy="steps",
-        max_steps=args.max_steps,
+        num_train_epochs=args.num_epochs,
         eval_steps=args.eval_freq,
         save_steps=args.save_freq,
         logging_steps=args.log_freq,
@@ -261,7 +260,7 @@ def run_training(args, train_data, val_data):
         lr_scheduler_type=args.lr_scheduler_type,
         warmup_steps=args.num_warmup_steps,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
-        gradient_checkpointing=not args.no_gradient_checkpointing,
+        gradient_checkpointing=args.gradient_checkpointing,
         fp16=not args.no_fp16,
         bf16=args.bf16,
         weight_decay=args.weight_decay,
