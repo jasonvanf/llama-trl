@@ -100,11 +100,11 @@ script_args = parser.parse_args_into_dataclasses()[0]
 set_seed(script_args.seed)
 
 # Load the dataset for tuning the reward model.
-dataset = load_dataset(
-    "json",
-    data_files=script_args.dataset_name,
-    split="train"
-)
+data_path = script_args.dataset_name
+if data_path.endswith(".json") or data_path.endswith(".jsonl"):
+    dataset = load_dataset("json", data_files=data_path, split="train")
+else:
+    dataset = load_dataset(data_path, split="train")
 dataset = dataset.train_test_split(test_size=0.1, seed=script_args.seed)
 train_dataset = dataset["train"]
 eval_dataset = dataset["test"]
