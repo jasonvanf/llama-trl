@@ -154,11 +154,7 @@ def collator(data):
 set_seed(config.seed)
 
 # Now let's build the model, the reference model, and the tokenizer.
-device_map = "auto"
-world_size = int(os.environ.get("WORLD_SIZE", 1))
-ddp = world_size != 1
-if ddp:
-    device_map = {"": int(os.environ.get("LOCAL_RANK") or 0)}
+current_device = Accelerator().local_process_index
 
 lora_config = LoraConfig(
     r=16,
@@ -170,7 +166,7 @@ lora_config = LoraConfig(
 model = AutoModelForCausalLMWithValueHead.from_pretrained(
     config.model_name,
     load_in_8bit=True,
-    device_map=device_map,
+    device_map={"": current_device},
     peft_config=lora_config,
     layer_norm_names=[],
 )

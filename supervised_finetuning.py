@@ -214,20 +214,13 @@ def create_datasets(tokenizer, args):
 
 def run_training(args, train_data, val_data):
     print("Loading the model")
-
-    device_map = "auto"
-    world_size = int(os.environ.get("WORLD_SIZE", 1))
-    ddp = world_size != 1
-    if ddp:
-        device_map = {"": int(os.environ.get("LOCAL_RANK") or 0)}
-
     # disable caching mechanism when using gradient checkpointing
     model = AutoModelForCausalLM.from_pretrained(
         args.base_model,
         trust_remote_code=True,
         use_cache=args.gradient_checkpointing,
         load_in_8bit=True,
-        device_map=device_map,
+        device_map={"": Accelerator().process_index},
     )
     model = prepare_model_for_int8_training(model)
 
@@ -267,7 +260,7 @@ def run_training(args, train_data, val_data):
         weight_decay=args.weight_decay,
         run_name="llama-7b-finetuned",
         report_to="wandb",
-        ddp_find_unused_parameters=False if ddp else None,
+        ddp_find_unused_parameters=False if int(os.environ.get("WORLD_SIZE", 1)) != 1 else None,
     )
 
     trainer = Trainer(model=model, args=training_args, train_dataset=train_data, eval_dataset=val_data)
