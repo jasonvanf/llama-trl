@@ -267,7 +267,7 @@ def run_training(args, train_data, val_data):
         weight_decay=args.weight_decay,
         run_name="llama-7b-finetuned",
         report_to="wandb",
-        ddp_find_unused_parameters=False,
+        ddp_find_unused_parameters=False if ddp else None,
     )
 
     trainer = Trainer(model=model, args=training_args, train_dataset=train_data, eval_dataset=val_data)
