@@ -30,7 +30,7 @@ def get_args():
     parser.add_argument("--shuffle_buffer", type=int, default=5000)
 
     parser.add_argument("--seq_length", type=int, default=2048)
-    parser.add_argument("--num_epochs", type=int, default=3)
+    parser.add_argument("--max_steps", type=int, default=10000)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
     parser.add_argument("--eos_token_id", type=int, default=49152)
@@ -250,7 +250,8 @@ def run_training(args, train_data, val_data):
     training_args = TrainingArguments(
         output_dir=args.output_dir,
         evaluation_strategy="steps",
-        num_train_epochs=args.num_epochs,
+        dataloader_drop_last=True,
+        max_steps=args.max_steps,
         eval_steps=args.eval_freq,
         save_steps=args.save_freq,
         logging_steps=args.log_freq,

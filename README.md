@@ -23,8 +23,9 @@ torchrun --nnodes 1 --nproc_per_node 8 supervised_finetuning.py \
     --base_model 'decapoda-research/llama-7b-hf' \
     --dataset_name './data/alpaca_gpt4_data.json' \
     --streaming \
+    --lr_scheduler_type 'cosine' \
     --learning_rate 1e-5 \
-    --num_epochs 3 \
+    --max_steps 4000 \
     --output_dir './checkpoints/supervised_llama/'
 ```
 
