@@ -222,20 +222,15 @@ def run_training(args, train_data, val_data, tokenizer=None):
 
 
 def main(args):
-    config = AutoConfig.from_pretrained(args.base_model)
-    architecture = config.architectures[0]
-
     tokenizer = LlamaTokenizer.from_pretrained(args.base_model)
-
-    if "Llama" in architecture:
-        print("Setting EOS, BOS, and UNK tokens for LLama tokenizer")
-        tokenizer.add_special_tokens(
-            {
-                "eos_token": "</s>",
-                "bos_token": "</s>",
-                "unk_token": "</s>",
-            }
-        )
+    tokenizer.add_special_tokens(
+        {
+            "eos_token": "</s>",
+            "bos_token": "</s>",
+            "unk_token": "</s>",
+            "pad_token": "</s>",
+        }
+    )
 
     train_dataset, eval_dataset = create_datasets(tokenizer, args)
     run_training(args, train_dataset, eval_dataset, tokenizer)
