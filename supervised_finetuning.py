@@ -28,7 +28,7 @@ def get_args():
     parser.add_argument("--streaming", action="store_true")
     parser.add_argument("--shuffle_buffer", type=int, default=5000)
 
-    parser.add_argument("--seq_length", type=int, default=2048)
+    parser.add_argument("--seq_length", type=int, default=1024)
     parser.add_argument("--max_steps", type=int, default=10000)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
