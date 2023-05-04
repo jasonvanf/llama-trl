@@ -1,9 +1,9 @@
 torch>=1.4.0
 datasets>=1.17.0
-git+https://github.com/huggingface/peft.git
-git+https://github.com/huggingface/transformers.git
+transformers>=4.28.1
 accelerate
 evaluate
+git+https://github.com/huggingface/peft.git
 git+https://github.com/lvwerra/trl.git
 tqdm
 sentencepiece
