@@ -153,7 +153,7 @@ def create_datasets(tokenizer, args):
     return train_dataset, valid_dataset
 
 
-def run_training(args, train_data, val_data):
+def run_training(args, train_data, val_data, tokenizer=None):
     print("Loading the model")
 
     lora_config = LoraConfig(
@@ -200,6 +200,7 @@ def run_training(args, train_data, val_data):
 
     trainer = SFTTrainer(
         model=model,
+        tokenizer=tokenizer,
         args=training_args,
         train_dataset=train_data,
         eval_dataset=val_data,
@@ -237,7 +238,7 @@ def main(args):
         )
 
     train_dataset, eval_dataset = create_datasets(tokenizer, args)
-    run_training(args, train_dataset, eval_dataset)
+    run_training(args, train_dataset, eval_dataset, tokenizer)
 
 
 if __name__ == "__main__":
