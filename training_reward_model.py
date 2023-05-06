@@ -12,7 +12,6 @@ from transformers import (
     AutoConfig,
     AutoModelForSequenceClassification,
     AutoTokenizer,
-    LlamaTokenizer,
     HfArgumentParser,
     PreTrainedTokenizerBase,
     Trainer,
@@ -86,7 +85,7 @@ class ScriptArguments:
     )
     optim: Optional[str] = field(
         default="adamw_hf",
-        metadata={"help": "The optimizer to use."},
+        metadata={"help": "Enables gradient checkpointing."},
     )
     lr_scheduler_type: Optional[str] = field(
         default="linear",
@@ -143,11 +142,11 @@ training_args = TrainingArguments(
     optim=script_args.optim,
     lr_scheduler_type=script_args.lr_scheduler_type,
 )
-
 # Load the value-head model and tokenizer.
+tokenizer = AutoTokenizer.from_pretrained(script_args.model_name)
 config = AutoConfig.from_pretrained(script_args.model_name)
-if "llama" in script_args.model_name.lower():
-    tokenizer = LlamaTokenizer.from_pretrained(script_args.model_name)
+
+if "llama" in script_args.model_name:
     # required for llama
     tokenizer.add_special_tokens(
         {
@@ -158,7 +157,6 @@ if "llama" in script_args.model_name.lower():
         }
     )
 else:
-    tokenizer = AutoTokenizer.from_pretrained(script_args.model_name)
     # required for gpt2
     tokenizer.pad_token = tokenizer.eos_token
 
