@@ -6,8 +6,8 @@ from accelerate import Accelerator
 from datasets import load_dataset
 from peft import LoraConfig
 from transformers import (
-    AutoConfig,
     AutoModelForCausalLM,
+    AutoTokenizer,
     LlamaTokenizer,
     TrainingArguments,
     logging,
@@ -223,15 +223,18 @@ def run_training(args, train_data, val_data, tokenizer=None):
 
 
 def main(args):
-    tokenizer = LlamaTokenizer.from_pretrained(args.base_model)
-    tokenizer.add_special_tokens(
-        {
-            "eos_token": "</s>",
-            "bos_token": "</s>",
-            "unk_token": "</s>",
-            "pad_token": "</s>",
-        }
-    )
+    if "llama" in args.base_model.lower():
+        tokenizer = LlamaTokenizer.from_pretrained(args.base_model)
+        tokenizer.add_special_tokens(
+            {
+                "eos_token": "</s>",
+                "bos_token": "</s>",
+                "unk_token": "</s>",
+                "pad_token": "</s>",
+            }
+        )
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(args.base_model)
 
     train_dataset, eval_dataset = create_datasets(tokenizer, args)
     run_training(args, train_dataset, eval_dataset, tokenizer)
