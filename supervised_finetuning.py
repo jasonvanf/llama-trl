@@ -50,7 +50,7 @@ def get_args():
     parser.add_argument("--eval_freq", default=1000, type=int)
     parser.add_argument("--save_freq", default=1000, type=int)
     parser.add_argument("--run_name", default="llama-supervised-finetuned", type=str)
-    parser.add_argument("--merge_lora", type=bool, default=False)
+    parser.add_argument("--merge_lora", action="store_true", default=True)
 
     return parser.parse_args()
 
