@@ -45,11 +45,12 @@ def get_args():
     parser.add_argument("--gradient_checkpointing", action="store_true", default=True)
     parser.add_argument("--seed", type=int, default=1103)
     parser.add_argument("--num_workers", type=int, default=None)
-    parser.add_argument("--merge_lora", type=bool, default=False)
     parser.add_argument("--output_dir", type=str, default="./checkpoints/supervised_llama/")
     parser.add_argument("--log_freq", default=1, type=int)
     parser.add_argument("--eval_freq", default=1000, type=int)
     parser.add_argument("--save_freq", default=1000, type=int)
+    parser.add_argument("--run_name", default="llama-supervised-finetuned", type=str)
+    parser.add_argument("--merge_lora", type=bool, default=False)
 
     return parser.parse_args()
 
@@ -187,7 +188,7 @@ def run_training(args, train_data, val_data, tokenizer=None):
         fp16=not args.no_fp16,
         bf16=args.bf16,
         weight_decay=args.weight_decay,
-        run_name="llama-7b-finetuned",
+        run_name=args.run_name,
         report_to="wandb",
         ddp_find_unused_parameters=False if int(os.environ.get("WORLD_SIZE", 1)) != 1 else None,
     )
