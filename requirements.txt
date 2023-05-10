@@ -1,6 +1,6 @@
 torch>=1.4.0
 datasets>=1.17.0
-transformers>=4.28.1
+transformers>=4.28.0
 accelerate
 evaluate
 git+https://github.com/huggingface/peft.git
@@ -8,3 +8,4 @@ git+https://github.com/lvwerra/trl.git
 tqdm
 sentencepiece
 bitsandbytes
+wandb
