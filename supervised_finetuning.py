@@ -25,7 +25,7 @@ def get_args():
     parser.add_argument("--dataset_name", type=str, default="./data/alpaca_gpt4_data.json")
     parser.add_argument("--split", type=str, default="train")
     parser.add_argument("--size_valid_set", type=int, default=4000)
-    parser.add_argument("--streaming", action="store_true")
+    parser.add_argument("--streaming", action="store_true", default=False)
     parser.add_argument("--shuffle_buffer", type=int, default=5000)
 
     parser.add_argument("--seq_length", type=int, default=1024)
@@ -44,9 +44,9 @@ def get_args():
     parser.add_argument("--weight_decay", type=float, default=0.05)
 
     parser.add_argument("--local_rank", type=int, default=0)
-    parser.add_argument("--no_fp16", action="store_false")
-    parser.add_argument("--bf16", action="store_true", default=True)
-    parser.add_argument("--gradient_checkpointing", action="store_true", default=True)
+    parser.add_argument("--fp16", action="store_true", default=False)
+    parser.add_argument("--no_bf16", action="store_false", default=True)
+    parser.add_argument("--no_gradient_checkpointing", action="store_false", default=True)
     parser.add_argument("--seed", type=int, default=1103)
     parser.add_argument("--num_workers", type=int, default=None)
     parser.add_argument("--output_dir", type=str, default="./checkpoints/supervised_llama/")
@@ -54,7 +54,7 @@ def get_args():
     parser.add_argument("--eval_freq", default=1000, type=int)
     parser.add_argument("--save_freq", default=1000, type=int)
     parser.add_argument("--run_name", default="llama-supervised-finetuned", type=str)
-    parser.add_argument("--merge_lora", action="store_true", default=True)
+    parser.add_argument("--merge_lora", action="store_true", default=False)
 
     return parser.parse_args()
 
@@ -188,9 +188,9 @@ def run_training(args, train_data, val_data, tokenizer=None):
         lr_scheduler_type=args.lr_scheduler_type,
         warmup_steps=args.num_warmup_steps,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
-        gradient_checkpointing=args.gradient_checkpointing,
-        fp16=not args.no_fp16,
-        bf16=args.bf16,
+        gradient_checkpointing=args.no_gradient_checkpointing,
+        fp16=args.fp16,
+        bf16=args.no_bf16,
         weight_decay=args.weight_decay,
         run_name=args.run_name,
         report_to="wandb",
@@ -219,7 +219,7 @@ def run_training(args, train_data, val_data, tokenizer=None):
     trainer.train()
 
     print("Saving last checkpoint of the model")
-    lora_model_path = os.path.join(args.output_dir, "lora/final_checkpoint/")
+    lora_model_path = os.path.join(args.output_dir, "final_checkpoint/")
     model.save_pretrained(lora_model_path)
 
     if args.merge_lora:
