@@ -37,6 +37,7 @@ def get_args():
     parser.add_argument("--lora_r", type=int, default=16)
     parser.add_argument("--lora_alpha", type=int, default=32)
     parser.add_argument("--lora_dropout", type=float, default=0.05)
+    parser.add_argument("--lora_target_modules", type=str, default=None)
 
     parser.add_argument("--learning_rate", type=float, default=1e-4)
     parser.add_argument("--lr_scheduler_type", type=str, default="linear")
@@ -165,9 +166,9 @@ def run_training(args, train_data, val_data, tokenizer=None):
         r=args.lora_r,
         lora_alpha=args.lora_alpha,
         lora_dropout=args.lora_dropout,
+        target_modules=args.lora_target_modules,
         bias="none",
         task_type="CAUSAL_LM",
-
     )
 
     train_data.start_iteration = 0
@@ -238,7 +239,9 @@ def main(args):
             }
         )
     else:
-        tokenizer = AutoTokenizer.from_pretrained(args.base_model)
+        tokenizer = AutoTokenizer.from_pretrained(args.base_model, use_fast=False)
+        if getattr(tokenizer, "pad_token", None) is None:
+            tokenizer.pad_token = tokenizer.eos_token
 
     train_dataset, eval_dataset = create_datasets(tokenizer, args)
     run_training(args, train_dataset, eval_dataset, tokenizer)
