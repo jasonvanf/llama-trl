@@ -228,7 +228,7 @@ def run_training(args, train_data, val_data, tokenizer=None):
 
 
 def main(args):
-    if "llama" in args.base_model.lower():
+    if "decapoda" in args.base_model.lower():
         tokenizer = LlamaTokenizer.from_pretrained(args.base_model)
         tokenizer.add_special_tokens(
             {

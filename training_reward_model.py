@@ -146,7 +146,7 @@ training_args = TrainingArguments(
 
 # Load the value-head model and tokenizer.
 config = AutoConfig.from_pretrained(script_args.model_name)
-if "llama" in script_args.model_name.lower():
+if "decapoda" in script_args.model_name.lower():
     tokenizer = LlamaTokenizer.from_pretrained(script_args.model_name)
     # required for llama
     tokenizer.add_special_tokens(
@@ -159,8 +159,8 @@ if "llama" in script_args.model_name.lower():
     )
 else:
     tokenizer = AutoTokenizer.from_pretrained(script_args.model_name)
-    # required for gpt2
-    tokenizer.pad_token = tokenizer.eos_token
+    if getattr(tokenizer, "pad_token", None) is None:
+        tokenizer.pad_token = tokenizer.eos_token
 
 peft_config = LoraConfig(
     task_type=TaskType.SEQ_CLS,
@@ -176,9 +176,6 @@ model = AutoModelForSequenceClassification.from_pretrained(
 model = get_peft_model(model, peft_config)
 model.print_trainable_parameters()
 
-# Need to do this for gpt2, because it doesn't have an official pad token.
-tokenizer.pad_token = tokenizer.eos_token
-model.config.pad_token_id = tokenizer.eos_token_id
 model.config.use_cache = script_args.gradient_checkpointing
 num_proc = 24  # Can adjust to be higher if you have more processors.
 original_columns = train_dataset.column_names
