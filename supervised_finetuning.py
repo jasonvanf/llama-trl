@@ -221,7 +221,7 @@ def run_training(args, train_data, val_data, tokenizer=None):
 
     print("Saving last checkpoint of the model")
     lora_model_path = os.path.join(args.output_dir, "final_checkpoint/")
-    model.save_pretrained(lora_model_path)
+    trainer.model.save_pretrained(lora_model_path)
 
     if args.merge_lora:
         merge_llm_with_lora(args.base_model, lora_model_path, args.output_dir)
