@@ -43,6 +43,7 @@ def get_args():
     parser.add_argument("--lr_scheduler_type", type=str, default="linear")
     parser.add_argument("--num_warmup_steps", type=int, default=100)
     parser.add_argument("--weight_decay", type=float, default=0.05)
+    parser.add_argument("--warmup_ratio", type=float, default=0.)
 
     parser.add_argument("--local_rank", type=int, default=0)
     parser.add_argument("--fp16", action="store_true", default=False)
@@ -54,6 +55,7 @@ def get_args():
     parser.add_argument("--log_freq", default=1, type=int)
     parser.add_argument("--eval_freq", default=1000, type=int)
     parser.add_argument("--save_freq", default=1000, type=int)
+    parser.add_argument("--save_total_limit", default=3, type=int)
     parser.add_argument("--run_name", default="llama-supervised-finetuned", type=str)
     parser.add_argument("--merge_lora", action="store_true", default=False)
 
@@ -183,6 +185,7 @@ def run_training(args, train_data, val_data, tokenizer=None):
         eval_steps=args.eval_freq,
         save_steps=args.save_freq,
         logging_steps=args.log_freq,
+        save_total_limit=args.save_total_limit,
         per_device_train_batch_size=args.batch_size,
         per_device_eval_batch_size=args.batch_size,
         learning_rate=args.learning_rate,
@@ -193,6 +196,7 @@ def run_training(args, train_data, val_data, tokenizer=None):
         fp16=args.fp16,
         bf16=args.no_bf16,
         weight_decay=args.weight_decay,
+        warmup_ratio=args.warmup_ratio,
         run_name=args.run_name,
         report_to="wandb",
         ddp_find_unused_parameters=False if int(os.environ.get("WORLD_SIZE", 1)) != 1 else None,
