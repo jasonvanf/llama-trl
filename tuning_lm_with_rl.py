@@ -168,7 +168,6 @@ model = AutoModelForCausalLMWithValueHead.from_pretrained(
     load_in_8bit=True,
     device_map={"": current_device},
     peft_config=lora_config,
-    layer_norm_names=[],
 )
 
 optimizer = None
