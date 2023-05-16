@@ -187,8 +187,8 @@ def run_training(args, train_data, val_data, tokenizer=None):
     trainer.train()
 
     print("Saving last checkpoint of the model")
-    lora_model_path = os.path.join(args.output_dir, "final_checkpoint/")
-    trainer.model.save_pretrained(lora_model_path)
+    final_model_path = os.path.join(args.output_dir, "final_checkpoint/")
+    trainer.model.save_pretrained(final_model_path)
 
 
 def main(args):
