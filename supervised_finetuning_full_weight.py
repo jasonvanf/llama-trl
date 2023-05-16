@@ -9,7 +9,8 @@ from transformers import (
     LlamaTokenizer,
     TrainingArguments,
     logging,
-    set_seed
+    set_seed,
+    Trainer,
 )
 from trl import SFTTrainer
 from trl.trainer import ConstantLengthDataset
@@ -51,6 +52,15 @@ def get_args():
     parser.add_argument("--run_name", default="llama-supervised-finetuned", type=str)
 
     return parser.parse_args()
+
+
+def safe_save_model_for_hf_trainer(trainer: Trainer, output_dir: str):
+    """Collects the state dict and dump to disk."""
+    state_dict = trainer.model.state_dict()
+    if trainer.args.should_save:
+        cpu_state_dict = {key: value.cpu() for key, value in state_dict.items()}
+        del state_dict
+        trainer._save(output_dir, state_dict=cpu_state_dict)  # noqa
 
 
 def chars_token_ratio(dataset, tokenizer, nb_examples=400):
@@ -186,9 +196,8 @@ def run_training(args, train_data, val_data, tokenizer=None):
     print("Training...")
     trainer.train()
 
-    print("Saving last checkpoint of the model")
-    final_model_path = os.path.join(args.output_dir, "final_checkpoint/")
-    trainer.model.save_pretrained(final_model_path)
+    trainer.save_state()
+    safe_save_model_for_hf_trainer(trainer=trainer, output_dir=args.output_dir)
 
 
 def main(args):
