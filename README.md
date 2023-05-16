@@ -29,6 +29,30 @@ torchrun --nnodes 1 --nproc_per_node 8 supervised_finetuning.py \
     --output_dir './checkpoints/supervised_llama/'
 ```
 
+or full weight supervised fine-tuning with DeepSpeed stage-3 (offload)
+
+```
+pip install deepspeed
+torchrun --nnodes 1 --nproc_per_node 8 supervised_finetuning_full_weight.py \
+    --base_model 'decapoda-research/llama-7b-hf' \
+    --dataset_name './data/alpaca_gpt4_data.json' \
+    --streaming \
+    --lr_scheduler_type 'cosine' \
+    --learning_rate 2e-5 \
+    --weight_decay 0. \
+    --warmup_ratio 0.03 \
+    --seq_length 1024 \
+    --batch_size 4 \
+    --gradient_accumulation_steps 8 \
+    --eval_freq 2000 \
+    --save_freq 2000 \
+    --max_steps 4000 \
+    --save_total_limit 1 \
+    --deepspeed "./configs/default_offload_opt_param.json" \
+    --run_name 'llama-7b-sft-full-weight' \
+    --output_dir './checkpoints/supervised_llama_full_weight/'
+```
+
 - **Step 2 - Training Reward Model**
 
 ```
