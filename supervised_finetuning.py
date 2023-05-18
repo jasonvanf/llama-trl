@@ -215,6 +215,7 @@ def run_training(args, train_data, val_data, tokenizer=None):
         train_dataset=train_data,
         eval_dataset=val_data,
         peft_config=lora_config,
+        max_seq_length=args.seq_length,
         packing=True,
     )
 
