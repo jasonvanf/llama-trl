@@ -7,7 +7,13 @@ from accelerate import Accelerator
 from datasets import load_dataset
 from peft import LoraConfig
 from tqdm import tqdm
-from transformers import Adafactor, AutoTokenizer, HfArgumentParser, pipeline
+from transformers import (
+    Adafactor,
+    AutoTokenizer,
+    LlamaTokenizer,
+    HfArgumentParser,
+    pipeline
+)
 
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer, set_seed
 from trl.core import LengthSampler
@@ -58,40 +64,8 @@ class ScriptArguments:
 
 parser = HfArgumentParser(ScriptArguments)
 script_args: ScriptArguments = parser.parse_args_into_dataclasses()[0]
-reward_model_name = script_args.reward_model_name
-config = PPOConfig(
-    model_name=script_args.model_name,
-    learning_rate=script_args.learning_rate,
-    log_with=script_args.log_with,
-    batch_size=script_args.batch_size,
-    mini_batch_size=script_args.mini_batch_size,
-    gradient_accumulation_steps=script_args.gradient_accumulation_steps,
-    optimize_cuda_cache=True,
-    early_stopping=script_args.early_stopping,
-    target_kl=script_args.target_kl,
-    ppo_epochs=script_args.ppo_epochs,
-    seed=script_args.seed,
-)
 
-# We then define the arguments to pass to the sentiment analysis pipeline.
-# We set `return_all_scores` to True to get the sentiment score for each token.
-rw_kwargs = {"return_all_scores": True, "function_to_apply": "none", "batch_size": 16, "truncation": True}
-
-tokenizer = AutoTokenizer.from_pretrained(script_args.tokenizer_name)
-# GPT-2 tokenizer has a pad token, but it is not eos_token by default. We need to set it to eos_token.
-# only for this model.
-
-if "llama" in script_args.tokenizer_name:
-    tokenizer.add_special_tokens(
-        {
-            "eos_token": DEFAULT_EOS_TOKEN,
-            "bos_token": DEFAULT_BOS_TOKEN,
-            "unk_token": DEFAULT_UNK_TOKEN,
-            "pad_token": DEFAULT_PAD_TOKEN,
-        }
-    )
-else:
-    tokenizer.pad_token = tokenizer.eos_token
+set_seed(script_args.seed)
 
 
 # Below is an example function to build the dataset. In our case, we use the IMDB dataset
@@ -142,16 +116,52 @@ def build_dataset(
     return ds
 
 
-# We retrieve the dataloader by calling the `build_dataset` function.
-dataset = build_dataset(tokenizer, script_args.dataset_name)
-
-
 def collator(data):
     return dict((key, [d[key] for d in data]) for key in data[0])
 
 
-# set seed before initializing value head for deterministic eval
-set_seed(config.seed)
+reward_model_name = script_args.reward_model_name
+config = PPOConfig(
+    model_name=script_args.model_name,
+    learning_rate=script_args.learning_rate,
+    log_with=script_args.log_with,
+    batch_size=script_args.batch_size,
+    mini_batch_size=script_args.mini_batch_size,
+    gradient_accumulation_steps=script_args.gradient_accumulation_steps,
+    optimize_cuda_cache=True,
+    early_stopping=script_args.early_stopping,
+    target_kl=script_args.target_kl,
+    ppo_epochs=script_args.ppo_epochs,
+    seed=script_args.seed,
+)
+
+# We then define the arguments to pass to the sentiment analysis pipeline.
+# We set `return_all_scores` to True to get the sentiment score for each token.
+rw_kwargs = {
+    "return_all_scores": True,
+    "function_to_apply": "none",
+    "batch_size": 16,
+    "truncation": True
+}
+
+if "decapoda" in script_args.model_name.lower():
+    tokenizer = LlamaTokenizer.from_pretrained(script_args.model_name)
+    # required for llama
+    tokenizer.add_special_tokens(
+        {
+            "eos_token": DEFAULT_EOS_TOKEN,
+            "bos_token": DEFAULT_BOS_TOKEN,
+            "unk_token": DEFAULT_UNK_TOKEN,
+            "pad_token": DEFAULT_PAD_TOKEN,
+        }
+    )
+else:
+    tokenizer = AutoTokenizer.from_pretrained(script_args.model_name)
+    if getattr(tokenizer, "pad_token", None) is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+# We retrieve the dataloader by calling the `build_dataset` function.
+dataset = build_dataset(tokenizer, script_args.dataset_name)
 
 # Now let's build the model, the reference model, and the tokenizer.
 current_device = Accelerator().local_process_index
@@ -179,6 +189,7 @@ if script_args.adafactor:
         warmup_init=False,
         lr=config.learning_rate,
     )
+
 # We then build the PPOTrainer, passing the model, the reference model, the tokenizer
 ppo_trainer = PPOTrainer(
     config,
@@ -199,7 +210,7 @@ if ppo_trainer.accelerator.num_processes == 1:
 reward_model = pipeline(
     "text-classification",
     model=reward_model_name,
-    device_map=device_map,
+    device_map={"": current_device},
     model_kwargs={"load_in_8bit": True},
     tokenizer=tokenizer,
 )

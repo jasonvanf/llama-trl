@@ -92,13 +92,106 @@ class ScriptArguments:
         default="linear",
         metadata={"help": "The lr scheduler"},
     )
-    output_dir: Optional[str] = field(default="./checkpoints/training_reward_model/", metadata={"help": "n steps to save the model"})
+    output_dir: Optional[str] = field(default="./checkpoints/training_reward_model/",
+                                      metadata={"help": "n steps to save the model"})
 
 
 parser = HfArgumentParser(ScriptArguments)
 script_args = parser.parse_args_into_dataclasses()[0]
 
 set_seed(script_args.seed)
+
+
+# We need to define a special data collator that batches the data in our j vs k format.
+@dataclass
+class RewardDataCollatorWithPadding:
+    tokenizer: PreTrainedTokenizerBase
+    padding: Union[bool, str, PaddingStrategy] = True
+    max_length: Optional[int] = None
+    pad_to_multiple_of: Optional[int] = None
+    return_tensors: str = "pt"
+
+    def __call__(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
+        features_j = []
+        features_k = []
+        for feature in features:
+            features_j.append(
+                {
+                    "input_ids": feature["input_ids_j"],
+                    "attention_mask": feature["attention_mask_j"],
+                }
+            )
+            features_k.append(
+                {
+                    "input_ids": feature["input_ids_k"],
+                    "attention_mask": feature["attention_mask_k"],
+                }
+            )
+        batch_j = self.tokenizer.pad(
+            features_j,
+            padding=self.padding,
+            max_length=self.max_length,
+            pad_to_multiple_of=self.pad_to_multiple_of,
+            return_tensors=self.return_tensors,
+        )
+        batch_k = self.tokenizer.pad(
+            features_k,
+            padding=self.padding,
+            max_length=self.max_length,
+            pad_to_multiple_of=self.pad_to_multiple_of,
+            return_tensors=self.return_tensors,
+        )
+        batch = {
+            "input_ids_j": batch_j["input_ids"],
+            "attention_mask_j": batch_j["attention_mask"],
+            "input_ids_k": batch_k["input_ids"],
+            "attention_mask_k": batch_k["attention_mask"],
+            "return_loss": True,
+        }
+        return batch
+
+
+# Turn the dataset into pairs of post + summaries, where text_j is the preferred question + answer and
+# text_k is the other. Then tokenize the dataset.
+def preprocess_function(examples):
+    new_examples = {
+        "input_ids_j": [],
+        "attention_mask_j": [],
+        "input_ids_k": [],
+        "attention_mask_k": [],
+    }
+    for question, response_j, response_k in zip(examples["user_input"], examples["completion_a"],
+                                                examples["completion_b"]):
+        tokenized_j = tokenizer(question + response_j, truncation=True)
+        tokenized_k = tokenizer(question + response_k, truncation=True)
+
+        new_examples["input_ids_j"].append(tokenized_j["input_ids"])
+        new_examples["attention_mask_j"].append(tokenized_j["attention_mask"])
+        new_examples["input_ids_k"].append(tokenized_k["input_ids"])
+        new_examples["attention_mask_k"].append(tokenized_k["attention_mask"])
+
+    return new_examples
+
+
+def compute_metrics(eval_pred):
+    predictions, _ = eval_pred
+    # Here, predictions is rewards_j and rewards_k.
+    # We want to see how much of the time rewards_j > rewards_k.
+    predictions = np.argmax(predictions, axis=0)
+    labels = np.zeros(predictions.shape)
+    return accuracy.compute(predictions=predictions, references=labels)
+
+
+class RewardTrainer(Trainer):
+    # Define how to compute the reward loss. We use the InstructGPT pairwise logloss: https://arxiv.org/abs/2203.02155
+    def compute_loss(self, model, inputs, return_outputs=False):
+        rewards_j = model(input_ids=inputs["input_ids_j"], attention_mask=inputs["attention_mask_j"])[0]
+        rewards_k = model(input_ids=inputs["input_ids_k"], attention_mask=inputs["attention_mask_k"])[0]
+        loss = -nn.functional.logsigmoid(rewards_j - rewards_k).mean()
+        if return_outputs:
+            return loss, {"rewards_j": rewards_j, "rewards_k": rewards_k}
+        return loss
+
 
 # Load the dataset for tuning the reward model.
 data_path = script_args.dataset_name
@@ -180,29 +273,6 @@ model.config.use_cache = script_args.gradient_checkpointing
 num_proc = 24  # Can adjust to be higher if you have more processors.
 original_columns = train_dataset.column_names
 
-
-# Turn the dataset into pairs of post + summaries, where text_j is the preferred question + answer and text_k is the other.
-# Then tokenize the dataset.
-def preprocess_function(examples):
-    new_examples = {
-        "input_ids_j": [],
-        "attention_mask_j": [],
-        "input_ids_k": [],
-        "attention_mask_k": [],
-    }
-    for question, response_j, response_k in zip(examples["user_input"], examples["completion_a"],
-                                                examples["completion_b"]):
-        tokenized_j = tokenizer(question + response_j, truncation=True)
-        tokenized_k = tokenizer(question + response_k, truncation=True)
-
-        new_examples["input_ids_j"].append(tokenized_j["input_ids"])
-        new_examples["attention_mask_j"].append(tokenized_j["attention_mask"])
-        new_examples["input_ids_k"].append(tokenized_k["input_ids"])
-        new_examples["attention_mask_k"].append(tokenized_k["attention_mask"])
-
-    return new_examples
-
-
 # preprocess the dataset and filter out QAs that are longer than max_length
 train_dataset = train_dataset.map(
     preprocess_function, batched=True, num_proc=num_proc, remove_columns=original_columns
@@ -214,81 +284,10 @@ eval_dataset = eval_dataset.map(preprocess_function, batched=True, num_proc=num_
 eval_dataset = eval_dataset.filter(
     lambda x: len(x["input_ids_j"]) <= script_args.max_length and len(x["input_ids_k"]) <= script_args.max_length)
 
-
-# We need to define a special data collator that batches the data in our j vs k format.
-@dataclass
-class RewardDataCollatorWithPadding:
-    tokenizer: PreTrainedTokenizerBase
-    padding: Union[bool, str, PaddingStrategy] = True
-    max_length: Optional[int] = None
-    pad_to_multiple_of: Optional[int] = None
-    return_tensors: str = "pt"
-
-    def __call__(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
-        features_j = []
-        features_k = []
-        for feature in features:
-            features_j.append(
-                {
-                    "input_ids": feature["input_ids_j"],
-                    "attention_mask": feature["attention_mask_j"],
-                }
-            )
-            features_k.append(
-                {
-                    "input_ids": feature["input_ids_k"],
-                    "attention_mask": feature["attention_mask_k"],
-                }
-            )
-        batch_j = self.tokenizer.pad(
-            features_j,
-            padding=self.padding,
-            max_length=self.max_length,
-            pad_to_multiple_of=self.pad_to_multiple_of,
-            return_tensors=self.return_tensors,
-        )
-        batch_k = self.tokenizer.pad(
-            features_k,
-            padding=self.padding,
-            max_length=self.max_length,
-            pad_to_multiple_of=self.pad_to_multiple_of,
-            return_tensors=self.return_tensors,
-        )
-        batch = {
-            "input_ids_j": batch_j["input_ids"],
-            "attention_mask_j": batch_j["attention_mask"],
-            "input_ids_k": batch_k["input_ids"],
-            "attention_mask_k": batch_k["attention_mask"],
-            "return_loss": True,
-        }
-        return batch
-
-
 # Define the metric that we'll use for validation.
 accuracy = evaluate.load("accuracy")
 
-
-def compute_metrics(eval_pred):
-    predictions, _ = eval_pred
-    # Here, predictions is rewards_j and rewards_k.
-    # We want to see how much of the time rewards_j > rewards_k.
-    predictions = np.argmax(predictions, axis=0)
-    labels = np.zeros(predictions.shape)
-    return accuracy.compute(predictions=predictions, references=labels)
-
-
-class RewardTrainer(Trainer):
-    # Define how to compute the reward loss. We use the InstructGPT pairwise logloss: https://arxiv.org/abs/2203.02155
-    def compute_loss(self, model, inputs, return_outputs=False):
-        rewards_j = model(input_ids=inputs["input_ids_j"], attention_mask=inputs["attention_mask_j"])[0]
-        rewards_k = model(input_ids=inputs["input_ids_k"], attention_mask=inputs["attention_mask_k"])[0]
-        loss = -nn.functional.logsigmoid(rewards_j - rewards_k).mean()
-        if return_outputs:
-            return loss, {"rewards_j": rewards_j, "rewards_k": rewards_k}
-        return loss
-
-
-# Train the model, woohoo.
+# Train the model
 trainer = RewardTrainer(
     model=model,
     args=training_args,
