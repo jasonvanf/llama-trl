@@ -52,11 +52,12 @@ def get_args():
     parser.add_argument("--seed", type=int, default=1103)
     parser.add_argument("--num_workers", type=int, default=None)
     parser.add_argument("--output_dir", type=str, default="./checkpoints/supervised_llama/")
-    parser.add_argument("--log_freq", default=1, type=int)
-    parser.add_argument("--eval_freq", default=1000, type=int)
-    parser.add_argument("--save_freq", default=1000, type=int)
-    parser.add_argument("--save_total_limit", default=3, type=int)
-    parser.add_argument("--run_name", default="llama-supervised-finetuned", type=str)
+    parser.add_argument("--log_freq", type=int, default=1)
+    parser.add_argument("--eval_freq", type=int, default=1000)
+    parser.add_argument("--save_freq", type=int, default=1000)
+    parser.add_argument("--save_total_limit", type=int, default=3)
+    parser.add_argument("--resume_from_checkpoint", type=str, default=None)
+    parser.add_argument("--run_name", type=str, default="llama-supervised-finetuned")
     parser.add_argument("--merge_lora", action="store_true", default=False)
 
     return parser.parse_args()
@@ -208,6 +209,33 @@ def run_training(args, train_data, val_data, tokenizer=None):
         device_map={"": Accelerator().local_process_index},
     )
 
+    if args.resume_from_checkpoint:
+        # Check the available weights and load them
+        checkpoint_name = os.path.join(
+            args.resume_from_checkpoint, "pytorch_model.bin"
+        )  # Full checkpoint
+        if not os.path.exists(checkpoint_name):
+            checkpoint_name = os.path.join(
+                args.resume_from_checkpoint, "adapter_model.bin"
+            )  # only LoRA model - LoRA config above has to fit
+            args.resume_from_checkpoint = None
+
+        if os.path.exists(checkpoint_name):
+            import torch
+            from peft import (
+                get_peft_model,
+                prepare_model_for_int8_training,
+                set_peft_model_state_dict
+            )
+            print(f"Restarting from {checkpoint_name}")
+            model = prepare_model_for_int8_training(model)
+            model = get_peft_model(model, lora_config)
+
+            adapters_weights = torch.load(checkpoint_name)
+            set_peft_model_state_dict(model, adapters_weights)
+        else:
+            print(f"Checkpoint {checkpoint_name} not found")
+
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
@@ -222,7 +250,7 @@ def run_training(args, train_data, val_data, tokenizer=None):
     print_trainable_parameters(model)
 
     print("Training...")
-    trainer.train()
+    trainer.train(resume_from_checkpoint=args.resume_from_checkpoint)
 
     print("Saving last checkpoint of the model")
     final_model_path = os.path.join(args.output_dir, "final_checkpoint/")
