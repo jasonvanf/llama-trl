@@ -52,6 +52,13 @@ class ScriptArguments:
     weight_decay: Optional[int] = field(default=0.001)
     seed: Optional[int] = field(default=1103)
     max_length: Optional[int] = field(default=512)
+    log_freq: Optional[int] = field(default=1)
+    eval_freq: Optional[int] = field(default=500)
+    save_freq: Optional[int] = field(default=500)
+    save_total_limit: Optional[int] = field(default=3)
+    lora_r: Optional[int] = field(default=8)
+    lora_alpha: Optional[int] = field(default=32)
+    lora_dropout: Optional[float] = field(default=0.1)
     model_name: Optional[str] = field(
         default="decapoda-research/llama-7b-hf",
         metadata={
@@ -174,6 +181,9 @@ def preprocess_function(examples):
 
 
 def compute_metrics(eval_pred):
+    # Define the metric that we'll use for validation.
+    accuracy = evaluate.load("accuracy")
+
     predictions, _ = eval_pred
     # Here, predictions is rewards_j and rewards_k.
     # We want to see how much of the time rewards_j > rewards_k.
@@ -192,6 +202,22 @@ class RewardTrainer(Trainer):
             return loss, {"rewards_j": rewards_j, "rewards_k": rewards_k}
         return loss
 
+
+if "decapoda" in script_args.model_name.lower():
+    tokenizer = LlamaTokenizer.from_pretrained(script_args.model_name)
+    # required for llama
+    tokenizer.add_special_tokens(
+        {
+            "eos_token": DEFAULT_EOS_TOKEN,
+            "bos_token": DEFAULT_BOS_TOKEN,
+            "unk_token": DEFAULT_UNK_TOKEN,
+            "pad_token": DEFAULT_PAD_TOKEN,
+        }
+    )
+else:
+    tokenizer = AutoTokenizer.from_pretrained(script_args.model_name)
+    if getattr(tokenizer, "pad_token", None) is None:
+        tokenizer.pad_token = tokenizer.eos_token
 
 # Load the dataset for tuning the reward model.
 data_path = script_args.dataset_name
@@ -213,6 +239,14 @@ output_name = (
     f"{model_name_split}_peft_gpt-4-llm_rm_{script_args.train_subset}_{script_args.learning_rate}"
 )
 
+peft_config = LoraConfig(
+    task_type=TaskType.SEQ_CLS,
+    inference_mode=False,
+    r=script_args.lora_r,
+    lora_alpha=script_args.lora_alpha,
+    lora_dropout=script_args.lora_dropout,
+)
+
 training_args = TrainingArguments(
     output_dir=os.path.join(script_args.output_dir, output_name),
     learning_rate=script_args.learning_rate,
@@ -221,9 +255,10 @@ training_args = TrainingArguments(
     num_train_epochs=script_args.num_train_epochs,
     weight_decay=script_args.weight_decay,
     evaluation_strategy="steps",
-    eval_steps=500,
+    eval_steps=script_args.eval_freq,
     save_strategy="steps",
-    save_steps=500,
+    save_steps=script_args.save_freq,
+    save_total_limit=script_args.save_total_limit,
     gradient_accumulation_steps=script_args.gradient_accumulation_steps,
     gradient_checkpointing=script_args.gradient_checkpointing,
     deepspeed=script_args.deepspeed,
@@ -232,60 +267,32 @@ training_args = TrainingArguments(
     label_names=[],
     bf16=script_args.bf16,
     logging_strategy="steps",
-    logging_steps=10,
+    logging_steps=script_args.log_freq,
     optim=script_args.optim,
     lr_scheduler_type=script_args.lr_scheduler_type,
-)
-
-# Load the value-head model and tokenizer.
-config = AutoConfig.from_pretrained(script_args.model_name)
-if "decapoda" in script_args.model_name.lower():
-    tokenizer = LlamaTokenizer.from_pretrained(script_args.model_name)
-    # required for llama
-    tokenizer.add_special_tokens(
-        {
-            "eos_token": DEFAULT_EOS_TOKEN,
-            "bos_token": DEFAULT_BOS_TOKEN,
-            "unk_token": DEFAULT_UNK_TOKEN,
-            "pad_token": DEFAULT_PAD_TOKEN,
-        }
-    )
-else:
-    tokenizer = AutoTokenizer.from_pretrained(script_args.model_name)
-    if getattr(tokenizer, "pad_token", None) is None:
-        tokenizer.pad_token = tokenizer.eos_token
-
-peft_config = LoraConfig(
-    task_type=TaskType.SEQ_CLS,
-    inference_mode=False,
-    r=8,
-    lora_alpha=32,
-    lora_dropout=0.1,
 )
 
 model = AutoModelForSequenceClassification.from_pretrained(
     script_args.model_name, num_labels=1, torch_dtype=torch.bfloat16
 )
 model = get_peft_model(model, peft_config)
-model.print_trainable_parameters()
 
+model.print_trainable_parameters()
 model.config.use_cache = script_args.gradient_checkpointing
+
 num_proc = 24  # Can adjust to be higher if you have more processors.
 original_columns = train_dataset.column_names
-
 # preprocess the dataset and filter out QAs that are longer than max_length
 train_dataset = train_dataset.map(
     preprocess_function, batched=True, num_proc=num_proc, remove_columns=original_columns
 )
 train_dataset = train_dataset.filter(
     lambda x: len(x["input_ids_j"]) <= script_args.max_length and len(x["input_ids_k"]) <= script_args.max_length)
-
-eval_dataset = eval_dataset.map(preprocess_function, batched=True, num_proc=num_proc, remove_columns=original_columns)
+eval_dataset = eval_dataset.map(
+    preprocess_function, batched=True, num_proc=num_proc, remove_columns=original_columns
+)
 eval_dataset = eval_dataset.filter(
     lambda x: len(x["input_ids_j"]) <= script_args.max_length and len(x["input_ids_k"]) <= script_args.max_length)
-
-# Define the metric that we'll use for validation.
-accuracy = evaluate.load("accuracy")
 
 # Train the model
 trainer = RewardTrainer(
