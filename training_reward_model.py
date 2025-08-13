@@ -307,4 +307,4 @@ trainer = RewardTrainer(
 trainer.train(script_args.resume_from_checkpoint)
 
 print("Saving last checkpoint of the model")
-model.save_pretrained(script_args.output_dir + "peft_last_checkpoint")
+model.save_pretrained(os.path.join(script_args.output_dir, "peft_last_checkpoint"))
